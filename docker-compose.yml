@@ -1,0 +1,47 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:${MSSQL_VERSION:-2022-latest}
+    # Imagem só existe para amd64; no Mac com Apple Silicon roda pelo Rosetta do Docker Desktop.
+    platform: linux/amd64
+    container_name: sqlserver
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_PID: ${MSSQL_PID:-Developer}
+    ports:
+      - '${MSSQL_PORT:-1433}:1433'
+    volumes:
+      # Volume nomeado: com bind mount de pasta do macOS o SQL Server não abre o master.mdf (erro 5105).
+      - sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test: ['CMD-SHELL', '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b -o /dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # Roda uma vez depois que o servidor fica saudável: cria os bancos de init/*.sql (idempotente).
+  sqlserver-init:
+    image: mcr.microsoft.com/mssql/server:${MSSQL_VERSION:-2022-latest}
+    platform: linux/amd64
+    env_file:
+      - .env
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    volumes:
+      - ./init:/init:ro
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        for f in /init/*.sql; do
+          echo "init: $$f"
+          /opt/mssql-tools18/bin/sqlcmd -C -S sqlserver -U sa -P "$$MSSQL_SA_PASSWORD" -b -i "$$f" || exit 1
+        done
+    restart: 'no'
+
+volumes:
+  sqlserver_data:
