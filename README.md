@@ -23,16 +23,6 @@ idempotentes: rodam de novo a cada `up` sem efeito.
   docker exec -it sqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$(grep MSSQL_SA_PASSWORD .env | cut -d= -f2)"
   ```
 
-## halley-api
-
-`init/01-halley.sql` cria o banco `halley` com a collation `Latin1_General_100_CS_AS_SC` e `READ_COMMITTED_SNAPSHOT ON`.
-No halley-api, a senha vai com percent-encoding na URL (`#` vira `%23`):
-
-```bash
-MSSQL_DATABASE_URL='mssql://sa:Halley%23Local2026@localhost:1433/halley?encrypt=false' pnpm db:migrate:mssql
-DATABASE_URL='mssql://sa:Halley%23Local2026@localhost:1433/halley?encrypt=false' pnpm db:seed
-```
-
 ## Observações
 
 - A imagem só existe para `amd64`. No Mac com Apple Silicon roda pelo Rosetta (Docker Desktop, "Use Rosetta for
