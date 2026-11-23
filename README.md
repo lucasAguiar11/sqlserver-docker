@@ -88,6 +88,25 @@ Tirar o firewall: `systemctl disable --now sqlserver-firewall`, depois
 Mesmo com o firewall, use `encrypt=true&trustServerCertificate=true` na URL de quem conecta pela internet: com
 `encrypt=false` o login vai cifrado, mas as queries e os resultados não.
 
+## Importar os dados do PostgreSQL antigo do Halley
+
+`import-postgres/` copia de um PostgreSQL do Halley para o banco `halley` daqui as linhas que ainda não estão lá, pela
+chave primária e com os mesmos ids, e alinha as sequences. Tabela com a mesma contagem nos dois lados é pulada; linha
+que já existe não é alterada. O banco precisa estar migrado pelo halley-api (`pnpm db:migrate`). Se o schema não bater
+ou alguma FK ou CHECK falhar, nada é gravado. Pode rodar de novo quantas vezes precisar.
+
+```bash
+cd import-postgres && npm install
+POSTGRES_DATABASE_URL='postgres://…' MSSQL_DATABASE_URL='mssql://sa:…@localhost:1433/halley?encrypt=false' node import.mjs
+```
+
+No servidor, um comando só (roda num `node:22-alpine` na rede do host; a origem é `POSTGRES_DATABASE_URL` ou o
+`DATABASE_URL` do container `halley-api`). É bem mais rápido do que pelo túnel SSH, que derrubou a conexão no meio:
+
+```bash
+cd /root/devops/sqlserver-docker && ./import-postgres/run-in-docker.sh
+```
+
 ## Observações
 
 - A imagem só existe para `amd64`. No Mac com Apple Silicon roda pelo Rosetta (Docker Desktop, "Use Rosetta for
