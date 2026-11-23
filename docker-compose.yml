@@ -11,7 +11,8 @@ services:
       ACCEPT_EULA: 'Y'
       MSSQL_PID: ${MSSQL_PID:-Developer}
     ports:
-      - '${MSSQL_PORT:-1433}:1433'
+      # Só a própria máquina por padrão; de fora, túnel SSH. MSSQL_BIND=0.0.0.0 abre para a rede (com firewall).
+      - '${MSSQL_BIND:-127.0.0.1}:${MSSQL_PORT:-1433}:1433'
     volumes:
       # Volume nomeado: com bind mount de pasta do macOS o SQL Server não abre o master.mdf (erro 5105).
       - sqlserver_data:/var/opt/mssql

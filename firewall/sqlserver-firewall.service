@@ -1,0 +1,13 @@
+[Unit]
+Description=Limita a porta do SQL Server a rede interna e IPs liberados (DOCKER-USER)
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/root/devops/sqlserver-docker/firewall/sqlserver-firewall.sh
+
+[Install]
+WantedBy=multi-user.target docker.service
