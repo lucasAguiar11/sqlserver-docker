@@ -5,9 +5,10 @@
 # DATABASE_URL do container halley-api.
 set -eu
 cd "$(dirname "$0")/.."
-set -a
-. ./.env
-set +a
+# Sem `. ./.env`: MSSQL_ALLOWED_SOURCES tem IPs separados por espaço, que o shell leria como comando.
+env_value() { sed -n "s/^$1=//p" .env | tail -n 1; }
+MSSQL_SA_PASSWORD=$(env_value MSSQL_SA_PASSWORD)
+MSSQL_PORT=$(env_value MSSQL_PORT)
 if [ -z "${POSTGRES_DATABASE_URL:-}" ]; then
   POSTGRES_DATABASE_URL=$(docker inspect halley-api --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^DATABASE_URL=//p')
 fi
