@@ -13,6 +13,8 @@ import * as Tedious from 'tedious';
 // Tabela de ferramenta de migration que ficou no PostgreSQL, sem dado da aplicação.
 const SKIPPED_SOURCE_TABLES = new Set(['_prisma_migrations']);
 const MAX_PARAMETERS = 2000;
+// O tedious manda NULL como nvarchar, que o SQL Server não converte para varbinary (erro 257).
+const NULL_BINARY = sql`CAST(NULL AS varbinary(max))`;
 // Lidos como texto: data e hora já estão em UTC (a sessão roda em UTC), numeric e bigint não perdem precisão e JSON
 // chega byte a byte. Os arrays (`text[]`, `int[]`) chegam como array JS e viram JSON.
 const RAW_TYPES = new Set([
@@ -98,6 +100,14 @@ async function importData(source, target) {
       )
     ).rows,
   );
+  const binaryColumns = new Set(
+    (
+      await sql`
+        SELECT t.name AS tbl, c.name AS col
+        FROM sys.tables t JOIN sys.columns c ON c.object_id = t.object_id
+        WHERE SCHEMA_NAME(t.schema_id) = 'dbo' AND TYPE_NAME(c.user_type_id) IN ('varbinary', 'binary')`.execute(target)
+    ).rows.map(({ tbl, col }) => `${tbl}.${col}`),
+  );
   const primaryKeys = new Map();
   for (const { tbl, col } of (
     await sql`
@@ -153,7 +163,14 @@ async function importData(source, target) {
       for (let i = 0; i < missing.length; i += batch) {
         const values = missing
           .slice(i, i + batch)
-          .map((row) => Object.fromEntries(cols.map((col) => [col, toMssql(row[col])])));
+          .map((row) =>
+            Object.fromEntries(
+              cols.map((col) => [
+                col,
+                row[col] === null && binaryColumns.has(`${tbl}.${col}`) ? NULL_BINARY : toMssql(row[col]),
+              ]),
+            ),
+          );
         await trx.insertInto(tbl).values(values).execute();
       }
       imported += missing.length;
